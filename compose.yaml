@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/mepkn/electricity-bill-calculator:0000000000000000000000000000000000000000
+    image: ghcr.io/mepkn/electricity-bill-calculator:ac97f8c14d46ce6d14e5d2113cb62f807c935269
     container_name: electricity-bill
     restart: unless-stopped
     ports:
