@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -eu
+
+commit_sha=${1:?"usage: set-compose-image COMMIT_SHA [COMPOSE_FILE]"}
+compose_file=${2:-compose.yaml}
+
+case "$commit_sha" in
+  *[!0-9a-f]*)
+    echo "commit SHA must contain exactly 40 lowercase hexadecimal characters" >&2
+    exit 1
+    ;;
+esac
+if [ "${#commit_sha}" -ne 40 ]; then
+  echo "commit SHA must contain exactly 40 lowercase hexadecimal characters" >&2
+  exit 1
+fi
+
+image_pattern='^[[:space:]]*image: ghcr\.io/mepkn/electricity-bill-calculator:[0-9a-f]{40}[[:space:]]*$'
+if [ "$(grep -Ec "$image_pattern" "$compose_file")" -ne 1 ]; then
+  echo "compose file must contain exactly one immutable electricity-bill-calculator image" >&2
+  exit 1
+fi
+
+temporary_file="${compose_file}.tmp"
+trap 'rm -f "$temporary_file"' EXIT HUP INT TERM
+
+sed -E \
+  "s|(image: ghcr.io/mepkn/electricity-bill-calculator:)[0-9a-f]{40}|\\1${commit_sha}|" \
+  "$compose_file" > "$temporary_file"
+
+mv "$temporary_file" "$compose_file"
+trap - EXIT HUP INT TERM
