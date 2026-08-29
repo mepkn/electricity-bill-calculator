@@ -1,0 +1,17 @@
+:8080 {
+	root * /srv
+	encode gzip zstd
+	file_server
+
+	# Vite fingerprints asset filenames, so they can be cached forever.
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html must never be cached, or a redeploy leaves clients on a stale
+	# shell requesting bundles that no longer exist.
+	header /index.html Cache-Control "no-cache"
+
+	log {
+		output stdout
+		format console
+	}
+}

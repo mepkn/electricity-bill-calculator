@@ -1,0 +1,100 @@
+name: Build and publish
+
+on:
+  pull_request:
+    paths-ignore:
+      - compose.yaml
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - compose.yaml
+
+concurrency:
+  group: build-and-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type-check and build
+        run: npm run build
+      - name: Verify the compose image is immutable
+        run: |
+          set -eu
+          sha=$(printf '0%.0s' $(seq 40))
+          cp compose.yaml compose.yaml.orig
+          scripts/set-compose-image "$sha"
+          grep -q "electricity-bill-calculator:${sha}$" compose.yaml
+          mv compose.yaml.orig compose.yaml
+      - name: Build smoke-test image
+        run: docker build --tag electricity-bill-calculator:ci .
+      - name: Verify the image serves the app
+        run: |
+          set -eu
+          container_id=$(docker run -d -p 8080:8080 electricity-bill-calculator:ci)
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          for _ in $(seq 30); do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          asset=$(curl -fsS http://127.0.0.1:8080/ | grep -oE '/assets/[^"]+\.js' | head -1)
+          curl -fsSI "http://127.0.0.1:8080${asset}" | grep -qi 'cache-control: public, max-age=31536000, immutable'
+
+  publish:
+    if: github.event_name == 'push'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679fd # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+      - name: Record the deployed image
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "A newer main commit exists; its workflow will update Compose."
+            exit 0
+          fi
+          scripts/set-compose-image "$GITHUB_SHA"
+          git add compose.yaml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: deploy ${GITHUB_SHA}"
+          git push origin HEAD:main
