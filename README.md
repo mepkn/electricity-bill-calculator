@@ -65,3 +65,12 @@ React 19 · TypeScript · Vite · Tailwind CSS v4 · shadcn/ui
 
 No backend and no dependencies at runtime — `npm run build` emits a static
 `dist/` that any file server can host.
+
+## Deploy
+
+```bash
+./deploy.sh            # build and rsync dist/ to the VPS
+DRY_RUN=1 ./deploy.sh  # preview the upload
+```
+
+Caddy on the VPS serves `/var/www/electricity-bill-calculator` directly.
