@@ -21,6 +21,8 @@ No backend and no dependencies at runtime — `npm run build` emits a static
 
 ## Development
 
+Requires Node 22.18+ (`.nvmrc` pins 22).
+
 ```bash
 npm install
 npm run dev      # https://localhost:5173 and the LAN address
@@ -86,6 +88,10 @@ so 250 units is `100 × 4.40 + 100 × 4.50 + 50 × 6.00`, not `250 × 6.00`:
 
 Inputs: units consumed this month, sanctioned load (kW), and previous month's
 units (used to derive the fuel adjustment).
+
+### UI
+
+shadcn/ui components live in `src/components/ui/` (vendored, added with `npx shadcn add`, not linted); the theme tokens are in `src/index.css`.
 
 ### Sharing
 
