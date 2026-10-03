@@ -38,8 +38,10 @@ once. This affects `npm run dev` only; the production build is unchanged.
 | `npm run dev` | HTTPS dev server on localhost and the LAN |
 | `npm run build` | Typecheck and production build into `dist/` |
 | `npm run preview` | Serve the built `dist/` locally |
+| `npm run typecheck` | TypeScript check (`tsc -b`) |
 | `npm run lint` | ESLint |
-| `npm run check` | Typecheck and lint |
+| `npm test` | Unit tests (Vitest): slab pricing and bill totals |
+| `npm run check` | Typecheck, lint and tests |
 | `npm run deploy` | Checks, builds and uploads to the VPS |
 | `npm run deploy:dry` | Same, but only previews the upload |
 
